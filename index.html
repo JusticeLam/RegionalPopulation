@@ -1,0 +1,363 @@
+<!DOCTYPE html>
+<meta charset="utf-8">
+<style>
+/* font smaller */
+svg{
+    font-style: normal;
+    font-variant-ligatures: normal;
+    font-variant-caps: normal;
+    font-variant-numeric: normal;
+    font-weight: normal;
+    font-stretch: normal;
+    font-size: 10px;
+    line-height: normal;
+    font-family: sans-serif;
+} 
+/*bold text*/
+.bold {
+  font-weight: bold;
+}  
+/*   create line and path style for key*/
+.key line{ 
+    stroke: black;
+    shape-rendering: crispEdges;
+}    
+.key path {
+    display: none;
+}    
+/*border lines and not as dark*/
+.county-border{
+    fill: none;
+    stroke: black;
+    stroke-opacity: .4;
+}
+/*  tract lines and not as dark*/
+.tract{
+    stroke: black;
+    stroke-opacity: .2;
+}  
+/*title the same as Bostocks  */
+.title{
+    font: 46px sans-serif;
+    font-weight: 500;
+    letter-spacing: -1px;
+}
+</style>
+
+
+<body>
+<script type= "text/javascript" src="http://d3js.org/d3.v3.min.js"></script>     
+<script src="https://d3js.org/topojson.v1.min.js"></script>
+
+<div class=title>Oklahoma Population Density</div>
+<button onclick="changeColors()">Change Colors</button>
+<button onclick="changeTracts()">Toggle Tract Borders</button>
+<button onclick="changeState()">Toggle State Borders</button>
+    
+<script>
+//Color buckets
+//    var colors = d3.scale.quantize()
+//                    .range(["rgb(253, 212, 158)", "rgb(253, 187, 132)", "rgb(252, 141, 89)", "rgb(239, 101, 72)",
+//                     "rgb(215, 48, 31)", "rgb(179, 0, 0))","rgb(127, 0, 0)"]);
+//used http://www.w3schools.com/colors/colors_picker.asp for color selecting my purple
+var colors = [
+    ["rgb(255, 247, 236)","rgb(254, 232, 200)", "rgb(253, 212, 158)", "rgb(253, 187, 132)", "rgb(252, 141, 89)", "rgb(239, 101, 72)", "rgb(215, 48, 31)", "rgb(179, 0, 0)","rgb(127, 0, 0)"],
+    ["#f2e6ff", "#e6ccff", "#d9b3ff", "#bf80ff", "#a64dff", "#8c1aff", "#7300e6", "#5900b3", "#400080"] ];
+var colorSwitch = 0;
+var tractSwitch = 1;
+var stateSwitch = 0;
+var width = 1280,
+height = 720;
+    
+//Decimal number on axis and "," allows for numbers like "1,000"
+var formatNumber = d3.format(",d");
+    
+//Projection
+var projection = d3.geo.albersUsa()
+    .translate([width / 2, height / 2 - 300])
+    .scale(5000);
+    
+//Path
+var path = d3.geo.path()
+    .projection(projection);
+    
+//use threshold because it rounds up or down depending on value, doesn't just round down
+var color = d3.scale.threshold()
+    .domain([1, 10, 50, 100, 500, 1000, 2000, 5000])
+    .range(colors[colorSwitch]);
+    
+//https://bl.ocks.org/mbostock/4573883 
+var x = d3.scale.linear()
+    .domain([0, 5400])
+    .range([0, 500]);
+var xAxis = d3.svg.axis()
+    .scale(x)
+    .orient("bottom")
+    .tickSize(13)
+    .tickValues(color.domain())
+    .tickFormat(function(d) { return d >= 100 ? formatNumber(d) : null; });
+var svg = d3.select("body").append("svg")
+    .attr("width", width)
+    .attr("height", height);
+var g = svg.append("g")
+    .attr("class", "key")
+    .attr("transform", "translate(440,40)");
+g.selectAll("rect")
+    .data(color.range().map(function(d, i) {
+        return {
+            x0: i ? x(color.domain()[i - 1]) : x.range()[0],
+            x1: i < color.domain().length ? x(color.domain()[i]) : x.range()[1],
+            z: d
+        };
+    }))
+    .enter().append("rect")
+    .attr("height", 8)
+    .attr("x", function(d) { return d.x0; })
+    .attr("width", function(d) { return d.x1 - d.x0; })
+    .style("fill", function(d) { return d.z; });
+g.call(xAxis).append("text")
+    .attr("class", "bold")
+    .attr("y", -6)
+    .text("Population per square mile");
+    
+//http://bl.ocks.org/thomasgwatson/2ccc0d4a59e65c599c50    
+d3.json("ok.json", function(error, ok) {
+  if (error) throw error;
+
+  var tracts = topojson.feature(ok, ok.objects.tract);
+
+  // Clip tracts to land.
+  svg.append("defs").append("clipPath")
+      .attr("id", "clip-land")
+    .append("path")
+      .datum(topojson.feature(ok, ok.objects.county))
+      .attr("d", path);
+
+  // Group tracts by color for faster rendering.
+  svg.append("g")
+      .attr("class", "tract")
+      .attr("clip-path", "url(#clip-land)")
+    .selectAll("path")
+      .data(d3.nest()
+        .key(function(d) { return color(d.properties.population / d.properties.area * 2.58999e6); })
+        .entries(tracts.features.filter(function(d) { return d.properties.area; })))
+    .enter().append("path")
+      .style("fill", function(d) { return d.key; })
+      .attr("d", function(d) { return path({type: "FeatureCollection", features: d.values}); });
+
+  // Draw county borders.
+  svg.append("path")
+      .datum(topojson.mesh(ok, ok.objects.county, function(a, b) { return a !== b; }))
+      .attr("class", "county-border")
+      .attr("d", path);
+});
+    
+function changeColors(){
+colorSwitch = (colorSwitch+1)%2;
+    
+    //Decimal number on axis and "," allows for numbers like "1,000"
+var formatNumber = d3.format(",d");
+    
+    
+//Path
+var path = d3.geo.path()
+    .projection(projection);
+    
+//use threshold because it rounds up or down depending on value, doesn't just round down
+var color = d3.scale.threshold()
+    .domain([1, 10, 50, 100, 500, 1000, 2000, 5000])
+    .range(colors[colorSwitch]);
+    
+//https://bl.ocks.org/mbostock/4573883 
+var x = d3.scale.linear()
+    .domain([0, 5400])
+    .range([0, 500]);
+var xAxis = d3.svg.axis()
+    .scale(x)
+    .orient("bottom")
+    .tickSize(13)
+    .tickValues(color.domain())
+    .tickFormat(function(d) { return d >= 100 ? formatNumber(d) : null; });
+svg.append("rect")
+    .attr("x", 0)
+    .attr("y", 0)
+    .attr("width", width)
+    .attr("height", height)
+    .style("fill", "white");
+var g = svg.append("g")
+    .attr("class", "key")
+    .attr("transform", "translate(440,40)");
+g.selectAll("rect")
+    .data(color.range().map(function(d, i) {
+        return {
+            x0: i ? x(color.domain()[i - 1]) : x.range()[0],
+            x1: i < color.domain().length ? x(color.domain()[i]) : x.range()[1],
+            z: d
+        };
+    }))
+    .enter().append("rect")
+    .attr("height", 8)
+    .attr("x", function(d) { return d.x0; })
+    .attr("width", function(d) { return d.x1 - d.x0; })
+    .style("fill", function(d) { return d.z; });
+g.call(xAxis).append("text")
+    .attr("class", "bold")
+    .attr("y", -6)
+    .text("Population per square mile");
+    
+//http://bl.ocks.org/thomasgwatson/2ccc0d4a59e65c599c50    
+d3.json("ok.json", function(error, ok) {
+  if (error) throw error;
+
+  var tracts = topojson.feature(ok, ok.objects.tract);
+
+  // Clip tracts to land.
+  svg.append("defs").append("clipPath")
+      .attr("id", "clip-land")
+    .append("path")
+      .datum(topojson.feature(ok, ok.objects.county))
+      .attr("d", path);
+
+  // Group tracts by color for faster rendering.
+  svg.append("g")
+      .attr("class", "tract")
+      .attr("clip-path", "url(#clip-land)")
+    .selectAll("path")
+      .data(d3.nest()
+        .key(function(d) { return color(d.properties.population / d.properties.area * 2.58999e6); })
+        .entries(tracts.features.filter(function(d) { return d.properties.area; })))
+    .enter().append("path")
+      .style("fill", function(d) { return d.key; })
+      .attr("d", function(d) { return path({type: "FeatureCollection", features: d.values}); });
+
+  // Draw county borders. //Manipulated for button switch
+    svg.append("path")
+        .datum(topojson.mesh(ok, ok.objects.county, function(a, b) { return 0 == stateSwitch%2?a !== b: true; }))
+        .attr("class", "county-border")
+        .attr("d", path);
+    tractSwitch = 1;
+});
+}
+
+function changeTracts(){
+    var temp = document.getElementsByClassName("tract");
+    tractSwitch +=1;
+  //opacity is true or false and back at the same .2
+    for( i =0; i< temp.length; i++){
+        temp[i].style.strokeOpacity = (tractSwitch%2)*.2;
+    }
+}
+    
+function changeState(){
+    stateSwitch += 1;
+    
+//Decimal number on axis and "," allows for numbers like "1,000"
+var formatNumber = d3.format(",d");
+    
+//Path
+var path = d3.geo.path()
+    .projection(projection);
+    
+//use threshold because it rounds up or down depending on value, doesn't just round down
+var color = d3.scale.threshold()
+    .domain([1, 10, 50, 100, 500, 1000, 2000, 5000])
+    .range(colors[colorSwitch]);
+    
+//https://bl.ocks.org/mbostock/4573883 
+var x = d3.scale.linear()
+    .domain([0, 5400])
+    .range([0, 500]);
+var xAxis = d3.svg.axis()
+    .scale(x)
+    .orient("bottom")
+    .tickSize(13)
+    .tickValues(color.domain())
+    .tickFormat(function(d) { return d >= 100 ? formatNumber(d) : null; });
+svg.append("rect")
+    .attr("x", 0)
+    .attr("y", 0)
+    .attr("width", width)
+    .attr("height", height)
+    .style("fill", "white");
+var g = svg.append("g")
+    .attr("class", "key")
+    .attr("transform", "translate(440,40)");
+g.selectAll("rect")
+    .data(color.range().map(function(d, i) {
+        return {
+            x0: i ? x(color.domain()[i - 1]) : x.range()[0],
+            x1: i < color.domain().length ? x(color.domain()[i]) : x.range()[1],
+            z: d
+        };
+    }))
+    .enter().append("rect")
+    .attr("height", 8)
+    .attr("x", function(d) { return d.x0; })
+    .attr("width", function(d) { return d.x1 - d.x0; })
+    .style("fill", function(d) { return d.z; });
+g.call(xAxis).append("text")
+    .attr("class", "bold")
+    .attr("y", -6)
+    .text("Population per square mile");
+    
+//http://bl.ocks.org/thomasgwatson/2ccc0d4a59e65c599c50    
+d3.json("ok.json", function(error, ok) {
+  if (error) throw error;
+
+  var tracts = topojson.feature(ok, ok.objects.tract);
+
+  // Clip tracts to land.
+  svg.append("defs").append("clipPath")
+      .attr("id", "clip-land")
+    .append("path")
+      .datum(topojson.feature(ok, ok.objects.county))
+      .attr("d", path);
+
+  // Group tracts by color for faster rendering.
+  svg.append("g")
+      .attr("class", "tract")
+      .attr("clip-path", "url(#clip-land)")
+    .selectAll("path")
+      .data(d3.nest()
+        .key(function(d) { return color(d.properties.population / d.properties.area * 2.58999e6); })
+        .entries(tracts.features.filter(function(d) { return d.properties.area; })))
+    .enter().append("path")
+      .style("fill", function(d) { return d.key; })
+      .attr("d", function(d) { return path({type: "FeatureCollection", features: d.values}); });
+
+  // Draw county borders.
+  svg.append("path")
+      .datum(topojson.mesh(ok, ok.objects.county, function(a, b) { return 0 == stateSwitch%2?a !== b: true; }))
+      .attr("class", "county-border")
+      .attr("d", path);
+  tractType = 1;
+});
+}
+d3.select(self.frameElement).style("height", height + "px");
+    
+</script>
+    <div style="position: relative">
+        <p style="position: relative; bottom: 0; width:100%;"> Created by: Justice Lammers<br>Instructor: Suresh Lodha<br>
+CMPS 165: Data programming for Visualization<br>
+Fall 2016</p></div>
+    Files Submitted:
+    <ul>
+      <li>ok.json</li>
+      <li>okPopDensity.html</li>
+      <li>index.html</li>
+      <li>https://jdlammer.github.io/RegionalPopulation/</li>
+      <li>https://github.com/Jdlammer/RegionalPopulation</li>
+    </ul>
+    Studied Sources:
+    <ul>
+      <li>https://bost.ocks.org/mike/map/</li>
+      <li>https://bl.ocks.org/mbostock/5562380</li>
+      <li>http://jsfiddle.net/Nivaldo/rmwjhv2j/</li>
+      <li>http://bl.ocks.org/mapsam/6083585</li>
+      <li>http://bl.ocks.org/dpbackes/9478841</li>
+      <li>http://bl.ocks.org/thomasgwatson/2ccc0d4a59e65c599c50</li>
+      <li>http://www.w3schools.com/colors/colors_picker.asp</li>
+    </ul>
+
+        
+<body>
